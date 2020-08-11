@@ -11,7 +11,12 @@ pub enum PayloadSignal {
     InterruptSignal,
 }
 
-pub type ClientPayload = (usize, SocketAddr, String, PayloadSignal);
+pub type ClientPayload = (
+    /* client_id */ usize,
+    /* socket_addr */ SocketAddr,
+    /* message */ String,
+    PayloadSignal
+);
 
 pub struct Client {
     pub client_id: usize,

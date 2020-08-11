@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::io::Write;
 use std::net::{IpAddr, Ipv4Addr};
 use std::net::SocketAddr;
 use std::net::ToSocketAddrs;
@@ -15,7 +16,6 @@ use super::client::PayloadSignal;
 pub struct Server {
     server_address: SocketAddr,
     max_clients: usize,
-
     clients: HashMap<SocketAddr, Client>,
 }
 
@@ -53,9 +53,12 @@ impl Server {
         self
     }
 
-    pub fn run(&mut self) {
+    pub fn run(mut self) {
         let listener = TcpListener::bind(self.server_address).expect("Could not run the server, maybe the address and port already reserved?");
         listener.set_nonblocking(true).expect("Could not run the server as non-blocking");
+
+        println!("Server running on tcp://{}", self.server_address);
+        println!("Setting maximuum client to {}", self.max_clients);
 
         let (tx, rx) = mpsc::channel::<ClientPayload>();
         
@@ -74,16 +77,23 @@ impl Server {
                 self.clients.insert(socket_addr, client);
             }
 
-            if let Ok((client_id, socket_addr, message, payload_signal)) = rx.try_recv() {
+            if let Ok((_, socket_addr, message, payload_signal)) = rx.try_recv() {
                 match payload_signal {
                     PayloadSignal::InterruptSignal => {
                         self.clients.remove(&socket_addr);
                     }
 
                     _ => {
-                        println!("{}@{} -> {}", client_id, socket_addr, message);
+                        let fmt = format!("{} -> {}\r\n", socket_addr, message);
+                        print!("{}", fmt);
 
-                        // TODO: Let the server broadcast to client
+                        self.clients = self.clients.into_iter().filter_map(|(k, mut v)| {
+                            if socket_addr != k {
+                                v.stream.write(fmt.as_bytes()).ok();
+                            }
+
+                            Some((k, v))
+                        }).collect();
                     }
                 }
             }
