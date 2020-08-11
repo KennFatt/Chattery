@@ -1,8 +1,8 @@
+use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr};
 use std::net::SocketAddr;
 use std::net::ToSocketAddrs;
 use std::net::TcpListener;
-use std::net::Shutdown;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
@@ -16,8 +16,7 @@ pub struct Server {
     server_address: SocketAddr,
     max_clients: usize,
 
-    clients: Vec<Client>,
-    has_running: bool,
+    clients: HashMap<SocketAddr, Client>,
 }
 
 impl Server {
@@ -38,9 +37,8 @@ impl Server {
 
         Server {
             server_address,
-            max_clients: 4,
-            clients: Vec::with_capacity(4),
-            has_running: false,
+            max_clients: 1,
+            clients: HashMap::with_capacity(1),
         }
     }
 
@@ -50,60 +48,42 @@ impl Server {
         }
 
         self.max_clients = max_clients;
-        self.clients = Vec::with_capacity(max_clients);
+        self.clients = HashMap::with_capacity(max_clients);
 
         self
     }
 
-    pub fn run(mut self) -> Option<Server> {
-        if self.has_running {
-            return None
-        }
-
+    pub fn run(&mut self) {
         let listener = TcpListener::bind(self.server_address).expect("Could not run the server, maybe the address and port already reserved?");
         listener.set_nonblocking(true).expect("Could not run the server as non-blocking");
 
         let (tx, rx) = mpsc::channel::<ClientPayload>();
         
         loop {
-            if !self.has_running {
-                self.has_running = true;
-            }
-
             if let Ok((stream, socket_addr)) = listener.accept() {
+                /* Dropping new incoming socket if the server full already */
+                if self.clients.len() == self.max_clients && !self.clients.contains_key(&socket_addr) {
+                    continue;
+                }
+
                 /* Creating new session */
                 let client_id = self.clients.len();
                 let sender = tx.clone();
                 let client = Client::new(client_id, stream, socket_addr, sender);
-                self.clients.push(client);
+
+                self.clients.insert(socket_addr, client);
             }
 
             if let Ok((client_id, socket_addr, message, payload_signal)) = rx.try_recv() {
                 match payload_signal {
                     PayloadSignal::InterruptSignal => {
-                        // Clients need to be stopped
-                        if let Some(client) = self.clients.get_mut(client_id) {
-                            client.stream.shutdown(Shutdown::Both).ok();
-                        }
-
-                        /*
-                            NOTE|CRITICAL:
-
-                            It will throw panic when the index > len.
-
-                            How to reproduce:
-                            Clients connected with id 0, 1 respectively, and then
-                            client 0 disconnect first. After 1 going to disconnect
-                            the panic occur.
-
-                            Workaround: Use better approach like use `.iter` to validate id or
-                            use map for storing clients.
-                        */
-                        self.clients.remove(client_id);
+                        self.clients.remove(&socket_addr);
                     }
 
                     _ => {
                         println!("{}@{} -> {}", client_id, socket_addr, message);
+
+                        // TODO: Let the server broadcast to client
                     }
                 }
             }
