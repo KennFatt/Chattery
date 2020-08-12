@@ -1,10 +1,15 @@
-mod server;
 mod client;
+mod config;
+mod server;
 
 use server::Server;
+use config::Config;
 
 fn main() {
-    Server::new("0.0.0.0:2424")
-        .max_clients(2)
+    let config = Config::init();
+
+    Server::new(&config.get_address())
+        .max_clients(config.get_max_clients())
+        .max_acceptable_buffer(config.get_acceptable_buffer())
         .run();
 }

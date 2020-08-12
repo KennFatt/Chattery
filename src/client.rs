@@ -31,7 +31,7 @@ impl Client {
         let socket_addr_clone = socket_addr.clone();
 
         let thread = thread::spawn(move || loop {
-            let buf = &mut [0u8; 16];
+            let buf = &mut [0u8; 32];
 
             if let Ok(recv_bytes) = stream_clone.read(buf) {
                 // TODO: Prevent message that higher than the buffer will be defragmented

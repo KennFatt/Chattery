@@ -16,6 +16,7 @@ use super::client::PayloadSignal;
 pub struct Server {
     server_address: SocketAddr,
     max_clients: usize,
+    max_buffer: usize,
     clients: HashMap<SocketAddr, Client>,
 }
 
@@ -38,6 +39,7 @@ impl Server {
         Server {
             server_address,
             max_clients: 1,
+            max_buffer: 32,
             clients: HashMap::with_capacity(1),
         }
     }
@@ -53,12 +55,22 @@ impl Server {
         self
     }
 
+    pub fn max_acceptable_buffer(mut self, max_acceptable_buffer: usize) -> Server {
+        /* Default value as a threshold */
+        if max_acceptable_buffer > self.max_buffer {
+            self.max_buffer = max_acceptable_buffer;
+        }
+
+        self
+    }
+
     pub fn run(mut self) {
         let listener = TcpListener::bind(self.server_address).expect("Could not run the server, maybe the address and port already reserved?");
         listener.set_nonblocking(true).expect("Could not run the server as non-blocking");
 
         println!("Server running on tcp://{}", self.server_address);
-        println!("Setting maximuum client to {}", self.max_clients);
+        println!("Setting maximum client to {}", self.max_clients);
+        println!("Setting maximum acceptable buffer to {} bytes", self.max_buffer);
 
         let (tx, rx) = mpsc::channel::<ClientPayload>();
 
