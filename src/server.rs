@@ -70,14 +70,13 @@ impl Server {
                 }
 
                 /* Creating new session */
-                let client_id = self.clients.len();
                 let sender = tx.clone();
-                let client = Client::new(client_id, stream, socket_addr, sender);
+                let client = Client::new(stream, socket_addr, sender);
 
                 self.clients.insert(socket_addr, client);
             }
 
-            if let Ok((_, socket_addr, message, payload_signal)) = rx.try_recv() {
+            if let Ok((socket_addr, message, payload_signal)) = rx.try_recv() {
                 match payload_signal {
                     PayloadSignal::InterruptSignal => {
                         self.clients.remove(&socket_addr);
