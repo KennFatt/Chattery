@@ -47,6 +47,7 @@ impl Client {
                 }
 
                 let message = String::from_utf8_lossy(buf);
+                /* Pattern: null terminator, LF, CR, white-space */
                 let pat: &[_] = &['\x00', '\x0A', '\x0D', '\x20'];
                 let message = message.trim_matches(pat).to_string();
 
