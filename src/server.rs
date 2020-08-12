@@ -61,7 +61,7 @@ impl Server {
         println!("Setting maximuum client to {}", self.max_clients);
 
         let (tx, rx) = mpsc::channel::<ClientPayload>();
-        
+
         loop {
             if let Ok((stream, socket_addr)) = listener.accept() {
                 /* Dropping new incoming socket if the server full already */
@@ -76,27 +76,29 @@ impl Server {
                 self.clients.insert(socket_addr, client);
             }
 
-            if let Ok((socket_addr, message, payload_signal)) = rx.try_recv() {
+            if let Ok((socket_addr, payload_signal, message)) = rx.try_recv() {
                 match payload_signal {
                     PayloadSignal::InterruptSignal => {
                         self.clients.remove(&socket_addr);
                     }
 
                     _ => {
-                        let fmt = format!("{} -> {}\r\n", socket_addr, message);
-                        print!("{}", fmt);
+                        if let Some(message) = message {
+                            let fmt = format!("{} -> {}\r\n", socket_addr, message);
+                            print!("{}", fmt);
 
-                        self.clients = self.clients.into_iter().filter_map(|(k, mut v)| {
-                            if socket_addr != k {
-                                v.stream.write(fmt.as_bytes()).ok();
-                            }
+                            self.clients = self.clients.into_iter().filter_map(|(k, mut v)| {
+                                if socket_addr != k {
+                                    v.stream.write(fmt.as_bytes()).ok();
+                                }
 
-                            Some((k, v))
-                        }).collect();
+                                Some((k, v))
+                            }).collect();
+                        }
                     }
                 }
             }
-            
+
             thread::sleep(Duration::from_millis(1));
         }
     }

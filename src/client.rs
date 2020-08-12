@@ -12,9 +12,9 @@ pub enum PayloadSignal {
 }
 
 pub type ClientPayload = (
-    /* socket_addr */ SocketAddr,
-    /* message */ String,
-    PayloadSignal
+    SocketAddr,
+    PayloadSignal,
+    Option<String>,
 );
 
 pub struct Client {
@@ -36,7 +36,8 @@ impl Client {
             if let Ok(recv_bytes) = stream_clone.read(buf) {
                 // TODO: Prevent message that higher than the buffer will be defragmented
                 if recv_bytes == 0 {
-                    sender.send((socket_addr_clone, String::new(), PayloadSignal::InterruptSignal)).ok();
+                    println!("Client {} disconnected from the server.", socket_addr_clone);
+                    sender.send((socket_addr_clone, PayloadSignal::InterruptSignal, None)).ok();
                     break;
                 }
 
@@ -46,10 +47,10 @@ impl Client {
                 }
 
                 let message = String::from_utf8_lossy(buf);
-                let pat: &[_] = &['\x00', '\x0A', '\x0D'];
+                let pat: &[_] = &['\x00', '\x0A', '\x0D', '\x20'];
                 let message = message.trim_matches(pat).to_string();
 
-                sender.send((socket_addr_clone, message, PayloadSignal::MessageSignal))
+                sender.send((socket_addr_clone, PayloadSignal::MessageSignal, Some(message)))
                     .expect(&format!("Client {} could not send payload to the downstream!", socket_addr_clone));
             }
         });
@@ -67,7 +68,7 @@ impl Drop for Client {
             thread.join()
                 .expect(&format!("Trying to terminate thread of client {} but failed.", self.socket_addr));
         }
-        
-        println!("Client {} disconnected from the server", self.socket_addr);
+
+        println!("Connection with {} successfully closed!", self.socket_addr);
     }
 }
