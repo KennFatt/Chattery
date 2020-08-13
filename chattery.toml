@@ -1,0 +1,15 @@
+# Host IPv4 Address
+# Default: 127.0.0.1
+ip = "0.0.0.0"
+
+# Host Port
+port = 2424
+
+# Maximum amount of connected clients at the same time
+# NOTE: each client uses its own thread
+max_clients = 5
+
+# Maximum amount of bytes that can server handle
+# If the client sent exactly this value, the server will
+# immediately drop that connection.
+max_acceptable_buffer = 256

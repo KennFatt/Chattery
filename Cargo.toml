@@ -1,6 +1,6 @@
 [package]
-name = "chat"
-version = "0.1.0"
+name = "chattery"
+version = "1.0.0"
 authors = ["KennFatt <me@kennan.xyz>"]
 edition = "2018"
 

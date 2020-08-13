@@ -90,7 +90,7 @@ impl Server {
 
                 /* Creating new session */
                 let sender = tx.clone();
-                let client = Client::new(stream, socket_addr, sender);
+                let client = Client::new(stream, socket_addr, self.max_buffer, sender);
 
                 self.clients.insert(socket_addr, client);
             }

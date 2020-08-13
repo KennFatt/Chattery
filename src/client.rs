@@ -15,6 +15,7 @@ pub type ClientPayload = (SocketAddr, PayloadSignal, Option<String>);
 pub struct Client {
     pub stream: TcpStream,
     pub socket_addr: SocketAddr,
+    pub max_buffer: usize,
     pub thread: Option<thread::JoinHandle<()>>,
 }
 
@@ -22,6 +23,7 @@ impl Client {
     pub fn new(
         mut stream: TcpStream,
         socket_addr: SocketAddr,
+        max_buffer: usize,
         sender: mpsc::Sender<ClientPayload>,
     ) -> Client {
         println!("New connection from {} established.", socket_addr);
@@ -33,11 +35,29 @@ impl Client {
         let socket_addr_clone = socket_addr.clone();
 
         let thread = thread::spawn(move || loop {
-            let mut buf = [0u8; 32];
+            let mut buf = vec![0u8; max_buffer];
 
             if let Ok(recv_bytes) = stream.read(&mut buf) {
                 // TODO: Prevent message that higher than the buffer will be defragmented
-                if recv_bytes == 0 {
+                /*
+                    I'm tired already with this problem, if I stuck at this point
+                    I can't go build something new. So I just let this dumb idea
+                    for a while.
+
+                    We will drop the connection if client sent bytes exactly touch the
+                    `max_buffer` value.
+
+                    What I've been done so far:
+                    1. Trying to use `read_exact` but is not working, maybe it is my fault.
+                    2. I don't want to waste memory if we let the client sent many bytes
+                        as they want.
+                        I.e. allocating the buffer with String or read until EOF might producing
+                        high amount of memory. I know it is all about bytes. Imagine being flooded
+                        just because 1GiB length of bytes?
+
+                    NOTE for myself: This is not a solution, fix this if you smart enough in the future.
+                */
+                if recv_bytes == 0 || recv_bytes >= max_buffer {
                     println!("Client {} disconnected from the server.", socket_addr_clone);
                     sender
                         .send((socket_addr_clone, PayloadSignal::InterruptSignal, None))
@@ -82,6 +102,7 @@ impl Client {
         Client {
             stream: stream_clone,
             socket_addr,
+            max_buffer,
             thread: Some(thread),
         }
     }
