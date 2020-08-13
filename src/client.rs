@@ -20,22 +20,22 @@ pub struct Client {
 
 impl Client {
     pub fn new(
-        stream: TcpStream,
+        mut stream: TcpStream,
         socket_addr: SocketAddr,
         sender: mpsc::Sender<ClientPayload>,
     ) -> Client {
         println!("New connection from {} established.", socket_addr);
 
-        let mut stream_clone = stream.try_clone().expect(&format!(
+        let stream_clone = stream.try_clone().expect(&format!(
             "Could not clone stream for client: {}",
             socket_addr
         ));
         let socket_addr_clone = socket_addr.clone();
 
         let thread = thread::spawn(move || loop {
-            let buf = &mut [0u8; 32];
+            let mut buf = [0u8; 32];
 
-            if let Ok(recv_bytes) = stream_clone.read(buf) {
+            if let Ok(recv_bytes) = stream.read(&mut buf) {
                 // TODO: Prevent message that higher than the buffer will be defragmented
                 if recv_bytes == 0 {
                     println!("Client {} disconnected from the server.", socket_addr_clone);
@@ -45,15 +45,26 @@ impl Client {
                     break;
                 }
 
-                /* No need to process empty buffer (LF) */
-                if buf.starts_with(&[0x0A]) {
+                let buf = buf
+                    .iter()
+                    .filter_map(|x| {
+                        if *x >= 0x20 && *x <= 0x7E {
+                            return Some(*x);
+                        }
+
+                        None
+                    })
+                    .collect::<Vec<u8>>();
+
+                let message = String::from_utf8(buf)
+                    .expect("Could not parsing buffer into valid UTF-8!")
+                    .trim()
+                    .to_string();
+
+                /* No need to process empty buffer */
+                if message.len() <= 0 {
                     continue;
                 }
-
-                let message = String::from_utf8_lossy(buf);
-                /* Pattern: null terminator, LF, CR, white-space */
-                let pat: &[_] = &['\x00', '\x0A', '\x0D', '\x20'];
-                let message = message.trim_matches(pat).to_string();
 
                 sender
                     .send((
@@ -69,7 +80,7 @@ impl Client {
         });
 
         Client {
-            stream,
+            stream: stream_clone,
             socket_addr,
             thread: Some(thread),
         }
