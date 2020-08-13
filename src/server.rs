@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::io::Write;
-use std::net::{IpAddr, Ipv4Addr};
 use std::net::SocketAddr;
-use std::net::ToSocketAddrs;
 use std::net::TcpListener;
+use std::net::ToSocketAddrs;
+use std::net::{IpAddr, Ipv4Addr};
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
@@ -11,7 +11,6 @@ use std::time::Duration;
 use super::client::Client;
 use super::client::ClientPayload;
 use super::client::PayloadSignal;
-
 
 pub struct Server {
     server_address: SocketAddr,
@@ -46,7 +45,7 @@ impl Server {
 
     pub fn max_clients(mut self, max_clients: usize) -> Server {
         if max_clients == self.max_clients {
-            return self
+            return self;
         }
 
         self.max_clients = max_clients;
@@ -65,19 +64,27 @@ impl Server {
     }
 
     pub fn run(mut self) {
-        let listener = TcpListener::bind(self.server_address).expect("Could not run the server, maybe the address and port already reserved?");
-        listener.set_nonblocking(true).expect("Could not run the server as non-blocking");
+        let listener = TcpListener::bind(self.server_address)
+            .expect("Could not run the server, maybe the address and port already reserved?");
+        listener
+            .set_nonblocking(true)
+            .expect("Could not run the server as non-blocking");
 
         println!("Server running on tcp://{}", self.server_address);
         println!("Setting maximum client to {}", self.max_clients);
-        println!("Setting maximum acceptable buffer to {} bytes", self.max_buffer);
+        println!(
+            "Setting maximum acceptable buffer to {} bytes",
+            self.max_buffer
+        );
 
         let (tx, rx) = mpsc::channel::<ClientPayload>();
 
         loop {
             if let Ok((stream, socket_addr)) = listener.accept() {
                 /* Dropping new incoming socket if the server full already */
-                if self.clients.len() == self.max_clients && !self.clients.contains_key(&socket_addr) {
+                if self.clients.len() == self.max_clients
+                    && !self.clients.contains_key(&socket_addr)
+                {
                     continue;
                 }
 
@@ -99,13 +106,17 @@ impl Server {
                             let fmt = format!("{} -> {}\r\n", socket_addr, message);
                             print!("{}", fmt);
 
-                            self.clients = self.clients.into_iter().filter_map(|(k, mut v)| {
-                                if socket_addr != k {
-                                    v.stream.write(fmt.as_bytes()).ok();
-                                }
+                            self.clients = self
+                                .clients
+                                .into_iter()
+                                .filter_map(|(k, mut v)| {
+                                    if socket_addr != k {
+                                        v.stream.write(fmt.as_bytes()).ok();
+                                    }
 
-                                Some((k, v))
-                            }).collect();
+                                    Some((k, v))
+                                })
+                                .collect();
                         }
                     }
                 }

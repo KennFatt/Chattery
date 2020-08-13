@@ -1,21 +1,16 @@
 use std::io::prelude::*;
+use std::net::Shutdown;
 use std::net::SocketAddr;
 use std::net::TcpStream;
-use std::net::Shutdown;
 use std::sync::mpsc;
 use std::thread;
-
 
 pub enum PayloadSignal {
     MessageSignal,
     InterruptSignal,
 }
 
-pub type ClientPayload = (
-    SocketAddr,
-    PayloadSignal,
-    Option<String>,
-);
+pub type ClientPayload = (SocketAddr, PayloadSignal, Option<String>);
 
 pub struct Client {
     pub stream: TcpStream,
@@ -24,10 +19,17 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(stream: TcpStream, socket_addr: SocketAddr, sender: mpsc::Sender<ClientPayload>) -> Client {
+    pub fn new(
+        stream: TcpStream,
+        socket_addr: SocketAddr,
+        sender: mpsc::Sender<ClientPayload>,
+    ) -> Client {
         println!("New connection from {} established.", socket_addr);
 
-        let mut stream_clone = stream.try_clone().expect(&format!("Could not clone stream for client: {}", socket_addr));
+        let mut stream_clone = stream.try_clone().expect(&format!(
+            "Could not clone stream for client: {}",
+            socket_addr
+        ));
         let socket_addr_clone = socket_addr.clone();
 
         let thread = thread::spawn(move || loop {
@@ -37,7 +39,9 @@ impl Client {
                 // TODO: Prevent message that higher than the buffer will be defragmented
                 if recv_bytes == 0 {
                     println!("Client {} disconnected from the server.", socket_addr_clone);
-                    sender.send((socket_addr_clone, PayloadSignal::InterruptSignal, None)).ok();
+                    sender
+                        .send((socket_addr_clone, PayloadSignal::InterruptSignal, None))
+                        .ok();
                     break;
                 }
 
@@ -51,23 +55,39 @@ impl Client {
                 let pat: &[_] = &['\x00', '\x0A', '\x0D', '\x20'];
                 let message = message.trim_matches(pat).to_string();
 
-                sender.send((socket_addr_clone, PayloadSignal::MessageSignal, Some(message)))
-                    .expect(&format!("Client {} could not send payload to the downstream!", socket_addr_clone));
+                sender
+                    .send((
+                        socket_addr_clone,
+                        PayloadSignal::MessageSignal,
+                        Some(message),
+                    ))
+                    .expect(&format!(
+                        "Client {} could not send payload to the downstream!",
+                        socket_addr_clone
+                    ));
             }
         });
 
-        Client { stream, socket_addr, thread: Some(thread) }
+        Client {
+            stream,
+            socket_addr,
+            thread: Some(thread),
+        }
     }
 }
 
 impl Drop for Client {
     fn drop(&mut self) {
-        self.stream.shutdown(Shutdown::Both)
-            .expect(&format!("Could not shutdown the stream of client: {}", self.socket_addr));
+        self.stream.shutdown(Shutdown::Both).expect(&format!(
+            "Could not shutdown the stream of client: {}",
+            self.socket_addr
+        ));
 
         if let Some(thread) = self.thread.take() {
-            thread.join()
-                .expect(&format!("Trying to terminate thread of client {} but failed.", self.socket_addr));
+            thread.join().expect(&format!(
+                "Trying to terminate thread of client {} but failed.",
+                self.socket_addr
+            ));
         }
 
         println!("Connection with {} successfully closed!", self.socket_addr);

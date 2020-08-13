@@ -2,8 +2,8 @@ mod client;
 mod config;
 mod server;
 
-use server::Server;
 use config::Config;
+use server::Server;
 
 fn main() {
     let config = Config::init();

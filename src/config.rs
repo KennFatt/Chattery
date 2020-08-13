@@ -1,13 +1,11 @@
-use std::io::prelude::*;
 use std::fs::File;
+use std::io::prelude::*;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-
 #[allow(dead_code)]
 const FILE_NAME: &'static str = "chattery.toml";
-
 
 #[derive(Deserialize, Serialize)]
 pub struct Config {
@@ -21,15 +19,16 @@ impl Config {
     pub fn init() -> Config {
         let config_file = Path::new(FILE_NAME);
         let fallback = Config::default();
-        
+
         if !config_file.is_file() {
             let fallback_content = toml::to_string(&fallback)
                 .expect("Could not initialize new config file from default fallback!");
 
-            let mut file = File::create(config_file)
-                .expect(&format!("Could not open file {}!", FILE_NAME));
+            File::create(config_file)
+                .expect(&format!("Could not open file {}!", FILE_NAME))
+                .write(fallback_content.as_bytes())
+                .ok();
 
-            file.write(fallback_content.as_bytes()).ok();
             return fallback;
         }
 
@@ -39,8 +38,7 @@ impl Config {
             .read_to_string(&mut buffer)
             .expect("Could not read the configuraton file!");
 
-        toml::from_str::<Config>(&buffer)
-            .expect("Could not initialize config from existed file!")
+        toml::from_str::<Config>(&buffer).expect("Could not initialize config from existed file!")
     }
 
     pub fn get_address(&self) -> String {
