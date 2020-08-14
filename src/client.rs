@@ -110,10 +110,11 @@ impl Client {
 
 impl Drop for Client {
     fn drop(&mut self) {
-        self.stream.shutdown(Shutdown::Both).expect(&format!(
-            "Could not shutdown the stream of client: {}",
-            self.socket_addr
-        ));
+        match self.stream.shutdown(Shutdown::Both) {
+            Ok(_) => (),
+            Err(ref e) if e.kind() == std::io::ErrorKind::NotConnected => (),
+            Err(_) => (),
+        }
 
         if let Some(thread) = self.thread.take() {
             thread.join().expect(&format!(
