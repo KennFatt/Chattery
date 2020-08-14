@@ -122,7 +122,7 @@ impl Server {
                 }
             }
 
-            thread::sleep(Duration::from_millis(1));
+            thread::sleep(Duration::from_micros(1));
         }
     }
 }
