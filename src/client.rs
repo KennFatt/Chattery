@@ -16,7 +16,6 @@ pub type ClientPayload = (SocketAddr, PayloadSignal, Option<String>);
 pub struct Client {
     pub stream: TcpStream,
     pub socket_addr: SocketAddr,
-    pub max_buffer: usize,
     pub thread: Option<thread::JoinHandle<()>>,
 }
 
@@ -40,21 +39,22 @@ impl Client {
             let mut buffer = String::new();
 
             match reader.read_line(&mut buffer) {
-                Ok(recv_bytes) => {
-                    if recv_bytes == 0 {
-                        println!("Client {} disconnected from the server.", socket_addr_clone);
-                        sender
-                            .send((socket_addr_clone, PayloadSignal::InterruptSignal, None))
-                            .ok();
-                        break;
-                    }
+                Ok(0) => {
+                    println!("Client {} disconnected from the server.", socket_addr_clone);
+                    sender
+                        .send((socket_addr_clone, PayloadSignal::InterruptSignal, None))
+                        .ok();
+                    break;
+                }
 
+                Ok(recv_bytes) => {
                     /* Do nothing when the buffer is too large from current maximum */
                     if recv_bytes >= max_buffer {
                         continue;
                     }
 
                     let message = buffer
+                        .trim()
                         .as_bytes()
                         .iter()
                         .filter_map(|x| {
@@ -64,9 +64,7 @@ impl Client {
 
                             None
                         })
-                        .collect::<String>()
-                        .trim()
-                        .to_string();
+                        .collect::<String>();
 
                     sender
                         .send((
@@ -80,14 +78,13 @@ impl Client {
                         ));
                 }
 
-                Err(_) => ()
+                Err(_) => (),
             }
         });
 
         Client {
             stream: stream_clone,
             socket_addr,
-            max_buffer,
             thread: Some(thread),
         }
     }
